@@ -552,7 +552,7 @@ async function askClaude(prompt, contextParts) {
   const fullPrompt = contextParts && contextParts.length
     ? prompt + '\n\n' + contextParts.filter(Boolean).join('\n\n')
     : prompt;
-  return callGLM([{ role: 'user', content: fullPrompt }], 8000);
+  return callGLM([{ role: 'user', content: fullPrompt }], 4000);
 }
 
 // ══════════════════════════════════════
