@@ -1,6 +1,9 @@
 {
   "name": "dollarscore",
   "version": 2,
+  "functions": {
+    "api/claude.js": { "maxDuration": 60 }
+  },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/(.*)", "dest": "/index.html" }

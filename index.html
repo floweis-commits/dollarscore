@@ -307,7 +307,7 @@ body{font-family:'Inter',ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe U
       <div class="page-header">
         <div class="page-icon">📋</div>
         <div class="page-title">New Deal</div>
-        <div class="page-subtitle">Upload a PDF or email — AI extracts everything</div>
+        <div class="page-subtitle">Upload screenshots, PDF, or email — AI extracts everything</div>
       </div>
 
       <!-- DROP ZONE -->
@@ -951,8 +951,13 @@ structure: 9-10=secondary at discount+short lockup; 7-8=SAFE at discount; 5-6=fa
     const raw=await askClaude(prompt,contextParts);
     setLoadMsg('Processing scores...');
     let parsed;
-    try{const m=raw.match(/\{[\s\S]*\}/);if(!m)throw 0;parsed=JSON.parse(m[0]);}
-    catch(e){throw new Error('Could not parse AI response — please try again.');}
+    try{
+      if(!raw||!raw.trim())throw new Error('AI returned an empty response — memo may be too large. Try a shorter section or paste key text manually.');
+      const cleaned=raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'').trim();
+      const start=cleaned.indexOf('{');const end=cleaned.lastIndexOf('}');
+      if(start===-1||end===-1)throw new Error('No JSON found in AI response — please try again.');
+      parsed=JSON.parse(cleaned.slice(start,end+1));
+    }catch(e){throw new Error(e.message||'Could not parse AI response — please try again.');}
     scores={...parsed.scores};
     const company=parsed.company||'Unknown Company';
     const sector=parsed.sector||'';
