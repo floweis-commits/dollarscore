@@ -1,12 +1,12 @@
 // Serverless proxy — GLM via z.ai
-// glm-4.5 is a reasoning model: needs high max_tokens, response is in choices[0].message.content
+// glm-4.7-flash: free, fast, no reasoning overhead
 
 export const config = {
   api: { bodyParser: { sizeLimit: '4mb' } }
 };
 
 const GLM_BASE = 'https://api.z.ai/api/paas/v4/chat/completions';
-const MODEL = 'glm-4-flash';
+const MODEL = 'glm-4.7-flash';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -33,7 +33,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: MODEL,
         messages,
-        max_tokens: max_tokens || 16000
+        max_tokens: max_tokens || 4000,
+        thinking: { type: 'disabled' }
       })
     });
 
