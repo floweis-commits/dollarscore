@@ -314,8 +314,8 @@ body{font-family:'Inter',ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe U
       <div id="drop-zone" class="drop-zone" onclick="document.getElementById('memo-file-input').click()" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
         <div class="dz-icon">📎</div>
         <div class="dz-label">Drop files or click to upload</div>
-        <div class="dz-hint">PDF · Email (.eml .html .txt) · Select multiple</div>
-        <input type="file" id="memo-file-input" accept=".txt,.eml,.html,.htm,.pdf" style="display:none" multiple onchange="handleFileSelect(this)">
+        <div class="dz-hint">Screenshots (.png .jpg) · PDF · Email (.eml .html .txt) · Select multiple</div>
+        <input type="file" id="memo-file-input" accept=".txt,.eml,.html,.htm,.pdf,.png,.jpg,.jpeg,.webp" style="display:none" multiple onchange="handleFileSelect(this)">
       </div>
 
       <!-- FILE CHIPS -->
@@ -982,13 +982,10 @@ function handleFileSelect(input){
   input.value='';
 }
 function addFiles(files){
-  const imgFiles=files.filter(f=>f.type.startsWith('image/')||f.name.match(/\.(png|jpe?g|webp|gif)$/i));
-  if(imgFiles.length>0){
-    alert(`Screenshot upload is not supported yet.\n\nPlease export your screenshots as a PDF, or copy-paste the memo text using "+ Or paste memo text" below.`);
-  }
-  files.filter(f=>!f.type.startsWith('image/')&&!f.name.match(/\.(png|jpe?g|webp|gif)$/i)).forEach(f=>{
+  files.forEach(f=>{
+    const isImg=f.type.startsWith('image/')||f.name.match(/\.(png|jpe?g|webp|gif)$/i);
     const isPdf=f.type==='application/pdf'||f.name.match(/\.pdf$/i);
-    const kind=isPdf?'pdf':'text';
+    const kind=isImg?'image':isPdf?'pdf':'text';
     uploadedFiles.push({name:f.name,kind,file:f});
   });
   renderFileChips();
@@ -1002,7 +999,7 @@ function renderFileChips(){
   if(uploadedFiles.length===0){el.style.display='none';return;}
   el.style.display='flex';
   el.innerHTML=uploadedFiles.map((f,i)=>{
-    const icon=f.kind==='pdf'?'📄':'📧';
+    const icon=f.kind==='image'?'🖼️':f.kind==='pdf'?'📄':'📧';
     return `<div class="file-chip"><span>${icon}</span><span class="file-chip-name" title="${f.name}">${f.name}</span><button class="file-chip-rm" onclick="removeFile(${i})">×</button></div>`;
   }).join('')+`<span style="font-size:11px;color:var(--t3);margin-left:4px">${uploadedFiles.length} file${uploadedFiles.length>1?'s':''}</span>`;
 }
@@ -1056,10 +1053,28 @@ async function extractPdfText(file){
   return {text:text.replace(/\n{3,}/g,'\n\n').trim(), pages:pdf.numPages};
 }
 
-// Image OCR not supported — the GLM model via z.ai does not accept image inputs.
-// Users should export screenshots as PDF or copy-paste text instead.
+// Client-side OCR via Tesseract.js — no API key, runs entirely in browser
+async function loadTesseract(){
+  if(window.Tesseract)return;
+  await new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://unpkg.com/tesseract.js@5/dist/tesseract.min.js';
+    s.onload=res;s.onerror=rej;
+    document.head.appendChild(s);
+  });
+}
 async function extractFromImages(imageFiles){
-  throw new Error(`Screenshot OCR is not available with the current AI model. Please convert your screenshots to a PDF or copy-paste the memo text using "+ Or paste memo text" below.`);
+  await loadTesseract();
+  const parts=[];
+  for(let i=0;i<imageFiles.length;i++){
+    setLoadMsg(`Reading screenshot ${i+1} of ${imageFiles.length} (OCR)...`);
+    const worker=await Tesseract.createWorker('eng',1,{logger:()=>{}});
+    const {data:{text}}=await worker.recognize(imageFiles[i]);
+    await worker.terminate();
+    if(text&&text.trim())parts.push(text.trim());
+  }
+  if(!parts.length)throw new Error('Could not extract text from screenshots — try clearer images or paste the text manually.');
+  return parts.join('\n\n---\n\n');
 }
 
 // Parse text/html/eml file to plain text
@@ -1095,7 +1110,7 @@ async function resolveUploadedContent(){
   const parts=[];
 
   if(images.length>0){
-    setLoadMsg(`Reading ${images.length} screenshot${images.length>1?'s':''} via AI vision...`);
+    setLoadMsg(`Running OCR on ${images.length} screenshot${images.length>1?'s':''} (this takes ~10s)...`);
     const txt=await extractFromImages(images);
     parts.push(txt);
   }
