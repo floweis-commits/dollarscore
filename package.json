@@ -1,0 +1,9 @@
+{
+  "name": "dollarscore-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DollarScore deal submission API — accepts deal data from agents and queues to Slack for scoring",
+  "dependencies": {
+    "vercel": "^54.14.5"
+  }
+}
