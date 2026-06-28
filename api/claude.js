@@ -6,7 +6,7 @@ export const config = {
 };
 
 const GLM_BASE = 'https://api.z.ai/api/paas/v4/chat/completions';
-const MODEL = 'glm-4.5';
+const MODEL = 'glm-4-flash';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
