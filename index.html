@@ -552,7 +552,7 @@ async function askClaude(prompt, contextParts) {
   const fullPrompt = contextParts && contextParts.length
     ? prompt + '\n\n' + contextParts.filter(Boolean).join('\n\n')
     : prompt;
-  return callGLM([{ role: 'user', content: fullPrompt }], 16000);
+  return callGLM([{ role: 'user', content: fullPrompt }], 8000);
 }
 
 // ══════════════════════════════════════
@@ -951,14 +951,8 @@ structure: 9-10=secondary at discount+short lockup; 7-8=SAFE at discount; 5-6=fa
     const raw=await askClaude(prompt,contextParts);
     setLoadMsg('Processing scores...');
     let parsed;
-    try{
-      if(!raw||!raw.trim())throw new Error('AI returned empty response — memo may be too large. Try a shorter PDF or paste the key sections as text.');
-      // Strip markdown code fences if present, then extract outermost JSON object
-      const cleaned=raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'').trim();
-      const start=cleaned.indexOf('{');const end=cleaned.lastIndexOf('}');
-      if(start===-1||end===-1)throw new Error('No JSON found in AI response — please try again.');
-      parsed=JSON.parse(cleaned.slice(start,end+1));
-    }catch(e){throw new Error(e.message||'Could not parse AI response — please try again.');}
+    try{const m=raw.match(/\{[\s\S]*\}/);if(!m)throw 0;parsed=JSON.parse(m[0]);}
+    catch(e){throw new Error('Could not parse AI response — please try again.');}
     scores={...parsed.scores};
     const company=parsed.company||'Unknown Company';
     const sector=parsed.sector||'';
@@ -1062,7 +1056,11 @@ async function extractPdfText(file){
   return {text:text.replace(/\n{3,}/g,'\n\n').trim(), pages:pdf.numPages};
 }
 
-// Image OCR not supported — removed. addFiles() blocks images at upload time.
+// Image OCR not supported — the GLM model via z.ai does not accept image inputs.
+// Users should export screenshots as PDF or copy-paste text instead.
+async function extractFromImages(imageFiles){
+  throw new Error(`Screenshot OCR is not available with the current AI model. Please convert your screenshots to a PDF or copy-paste the memo text using "+ Or paste memo text" below.`);
+}
 
 // Parse text/html/eml file to plain text
 async function parseTextFile(file){
@@ -1091,10 +1089,16 @@ async function parseTextFile(file){
 async function resolveUploadedContent(){
   if(uploadedFiles.length===0)return null;
 
+  const images=uploadedFiles.filter(f=>f.kind==='image').map(f=>f.file);
   const pdfs=uploadedFiles.filter(f=>f.kind==='pdf');
   const texts=uploadedFiles.filter(f=>f.kind==='text');
   const parts=[];
 
+  if(images.length>0){
+    setLoadMsg(`Reading ${images.length} screenshot${images.length>1?'s':''} via AI vision...`);
+    const txt=await extractFromImages(images);
+    parts.push(txt);
+  }
   for(const f of pdfs){
     setLoadMsg(`Extracting ${f.name}...`);
     const {text}=await extractPdfText(f.file);
